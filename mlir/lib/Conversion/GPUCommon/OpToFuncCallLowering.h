@@ -13,6 +13,7 @@
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/TypeUtilities.h"
 
 namespace mlir {
 
@@ -72,7 +73,8 @@ public:
         std::is_base_of<OpTrait::OneResult<SourceOp>, SourceOp>::value,
         "expected single result op");
 
-    bool isResultBool = op->getResultTypes().front().isInteger(1);
+    bool isResultBool =
+        getElementTypeOrSelf(op->getResultTypes().front()).isInteger(1);
     if constexpr (!std::is_base_of<OpTrait::SameOperandsAndResultType<SourceOp>,
                                    SourceOp>::value) {
       assert(op->getNumOperands() > 0 &&
