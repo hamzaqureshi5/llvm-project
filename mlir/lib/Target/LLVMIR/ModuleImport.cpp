@@ -198,11 +198,25 @@ static Attribute convertMetadataToAttrImpl(
       if (FlatSymbolRefAttr symbolRef = getMetadataGlobalValueSymbolRef(
               ctx, iface, global, getNamelessGlobalSymbol))
         return MDValueAttr::get(ctx, symbolRef);
-    auto *ci = dyn_cast<llvm::ConstantInt>(constant);
-    if (!ci)
-      return {};
-    auto intType = IntegerType::get(ctx, ci->getBitWidth());
-    return MDConstantAttr::get(ctx, IntegerAttr::get(intType, ci->getValue()));
+    if (auto *ci = dyn_cast<llvm::ConstantInt>(constant)) {
+      auto intType = IntegerType::get(ctx, ci->getBitWidth());
+      return MDConstantAttr::get(ctx, IntegerAttr::get(intType, ci->getValue()));
+    }
+    if (auto *nullPtr = dyn_cast<llvm::ConstantPointerNull>(constant))
+      return MDNullAttr::get(ctx, nullPtr->getType()->getPointerAddressSpace());
+    if (auto *constExpr = dyn_cast<llvm::ConstantExpr>(constant)) {
+      if (constExpr->getOpcode() != llvm::Instruction::AddrSpaceCast)
+        return {};
+      Attribute argAttr = convertMetadataToAttrImpl(
+          ctx, llvm::ConstantAsMetadata::get(constExpr->getOperand(0)), path,
+          attrMap, iface, getNamelessGlobalSymbol);
+      if (!argAttr)
+        return {};
+      unsigned addressSpace =
+          cast<llvm::PointerType>(constExpr->getType())->getAddressSpace();
+      return MDAddrSpaceCastAttr::get(ctx, argAttr, addressSpace);
+    }
+    return {};
   }
   if (auto *vam = dyn_cast<llvm::ValueAsMetadata>(md)) {
     if (isa<llvm::GlobalValue>(vam->getValue()))

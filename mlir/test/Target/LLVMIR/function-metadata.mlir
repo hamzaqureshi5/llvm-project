@@ -118,6 +118,38 @@ llvm.func @uses_ifunc() attributes {
 
 // -----
 
+// CHECK-LABEL: define void @uses_null()
+// CHECK-SAME: !associated ![[NULL_NODE:[0-9]+]]
+llvm.func @uses_null() attributes {
+  function_metadata = [
+    #llvm.func_metadata<"associated", #llvm.md_node<#llvm.md_null<0>>>
+  ]
+} {
+  llvm.return
+}
+
+// CHECK-DAG: ![[NULL_NODE]] = !{ptr null}
+
+// -----
+
+llvm.mlir.global external @metadata_addrspace_global(0 : i32) {addr_space = 1 : i32} : i32
+
+// CHECK-LABEL: define void @uses_addrspacecast()
+// CHECK-SAME: !associated ![[CAST_NODE:[0-9]+]]
+llvm.func @uses_addrspacecast() attributes {
+  function_metadata = [
+    #llvm.func_metadata<"associated", #llvm.md_node<
+      #llvm.md_addrspacecast<#llvm.md_value<@metadata_addrspace_global>, 0>
+    >>
+  ]
+} {
+  llvm.return
+}
+
+// CHECK-DAG: ![[CAST_NODE]] = !{ptr addrspacecast (ptr addrspace(1) @metadata_addrspace_global to ptr)}
+
+// -----
+
 // CHECK-LABEL: define void @repeated_kind_metadata()
 // CHECK-SAME: !type ![[TYPE0:[0-9]+]]
 // CHECK-SAME: !type ![[TYPE1:[0-9]+]]

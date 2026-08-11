@@ -1767,6 +1767,40 @@ def LLVM_MDValueAttr : LLVM_Attr<"MDValue", "md_value"> {
   let assemblyFormat = "`<` $name `>`";
 }
 
+def LLVM_MDNullAttr : LLVM_Attr<"MDNull", "md_null"> {
+  let summary = "LLVM null-pointer-as-metadata";
+  let description = [{
+    Wraps a null pointer constant as an LLVM metadata node, corresponding to
+    `llvm::ConstantAsMetadata` wrapping a `llvm::ConstantPointerNull` in LLVM
+    IR. `addressSpace` holds the address space of the null pointer.
+
+    Example:
+    ```mlir
+    #llvm.md_null<0>
+    ```
+  }];
+  let parameters = (ins "unsigned":$addressSpace);
+  let assemblyFormat = "`<` $addressSpace `>`";
+}
+
+def LLVM_MDAddrSpaceCastAttr : LLVM_Attr<"MDAddrSpaceCast", "md_addrspacecast"> {
+  let summary = "LLVM address space cast constant expression as metadata";
+  let description = [{
+    Wraps an address space cast constant expression as an LLVM metadata node,
+    corresponding to `llvm::ConstantAsMetadata` wrapping a `llvm::ConstantExpr`
+    with an `addrspacecast` opcode in LLVM IR. `arg` is the metadata attribute
+    representing the casted pointer and `addressSpace` is the address space
+    of the resulting pointer.
+
+    Example:
+    ```mlir
+    #llvm.md_addrspacecast<#llvm.md_value<@my_global>, 0>
+    ```
+  }];
+  let parameters = (ins "Attribute":$arg, "unsigned":$addressSpace);
+  let assemblyFormat = "`<` $arg `,` $addressSpace `>`";
+}
+
 def LLVM_MDNodeAttr : LLVM_Attr<"MDNode", "md_node"> {
   let summary = "LLVM metadata node";
   let description = [{
@@ -1811,7 +1845,9 @@ def LLVM_FunctionMetadataArrayAttr
                          "array of #llvm.func_metadata attributes">;
 
 def LLVM_AnyMDAttr : AnyAttrOf<[
-    LLVM_MDStringAttr, LLVM_MDConstantAttr, LLVM_MDValueAttr, LLVM_MDNodeAttr],
-    "LLVM metadata attribute (md_string, md_const, md_value, or md_node)">;
+    LLVM_MDStringAttr, LLVM_MDConstantAttr, LLVM_MDValueAttr, LLVM_MDNullAttr,
+    LLVM_MDAddrSpaceCastAttr, LLVM_MDNodeAttr],
+    "LLVM metadata attribute (md_string, md_const, md_value, md_null, "
+    "md_addrspacecast, or md_node)">;
 
 #endif // LLVMIR_ATTRDEFS

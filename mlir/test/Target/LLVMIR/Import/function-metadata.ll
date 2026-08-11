@@ -93,3 +93,27 @@ define void @ifunc_ref_metadata() !callees !0 {
 }
 
 !0 = !{ptr @ifunc}
+
+; // -----
+
+; CHECK-LABEL: llvm.func @null_ref_metadata
+; CHECK-SAME: function_metadata
+; CHECK-SAME: #llvm.func_metadata<"associated", <#llvm.md_null<0>>>
+define void @null_ref_metadata() !associated !0 {
+  ret void
+}
+
+!0 = !{ptr null}
+
+; // -----
+
+@addrspace_global = addrspace(1) global i32 0
+
+; CHECK-LABEL: llvm.func @addrspacecast_ref_metadata
+; CHECK-SAME: function_metadata
+; CHECK-SAME: #llvm.func_metadata<"associated", <#llvm.md_addrspacecast<#llvm.md_value<@addrspace_global>, 0>>>
+define void @addrspacecast_ref_metadata() !associated !0 {
+  ret void
+}
+
+!0 = !{ptr addrspacecast (ptr addrspace(1) @addrspace_global to ptr)}
