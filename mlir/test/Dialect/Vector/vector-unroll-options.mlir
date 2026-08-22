@@ -602,6 +602,44 @@ func.func @vector_constant_mask() -> vector<16x16xi1> {
 
 // -----
 
+// The unroll shape for the mask ops is {8, 8}, which has a lower rank than the
+// mask here. It applies to the trailing dimensions, so it is padded to
+// [1, 8, 8] and the leading dimension is unrolled one slice at a time.
+
+// CHECK-LABEL: func @vector_create_mask_rank_mismatch
+//       CHECK:   %[[ZERO:.*]] = arith.constant dense<false> : vector<2x8x8xi1>
+//       CHECK:   %[[C1:.*]] = arith.constant 1 : index
+//       CHECK:   %[[M0:.*]] = vector.create_mask %[[C1]], %{{.*}}, %{{.*}} : vector<1x8x8xi1>
+//       CHECK:   %[[I0:.*]] = vector.insert_strided_slice %[[M0]], %[[ZERO]] {{.*}}offsets = [0, 0, 0]
+//       CHECK:   %[[M1:.*]] = vector.create_mask %[[C1]], %{{.*}}, %{{.*}} : vector<1x8x8xi1>
+//       CHECK:   %[[I1:.*]] = vector.insert_strided_slice %[[M1]], %[[I0]] {{.*}}offsets = [1, 0, 0]
+//       CHECK:   return %[[I1]] : vector<2x8x8xi1>
+func.func @vector_create_mask_rank_mismatch(%size: index) -> vector<2x8x8xi1> {
+  %c8 = arith.constant 8 : index
+  %0 = vector.create_mask %c8, %size, %c8 : vector<2x8x8xi1>
+  return %0 : vector<2x8x8xi1>
+}
+
+// -----
+
+// A tile that falls outside the mask gets a zero dimension. vector.constant_mask
+// takes the conjunction of its dimensions, so such a tile must be the all zeros
+// mask, which then folds to a false constant.
+
+// CHECK-LABEL: func @vector_constant_mask_rank_mismatch
+//       CHECK:   %[[EMPTY:.*]] = arith.constant dense<false> : vector<1x8x8xi1>
+//       CHECK:   %[[ZERO:.*]] = arith.constant dense<false> : vector<2x8x8xi1>
+//       CHECK:   %[[M0:.*]] = vector.constant_mask [1, 4, 8] : vector<1x8x8xi1>
+//       CHECK:   %[[I0:.*]] = vector.insert_strided_slice %[[M0]], %[[ZERO]] {{.*}}offsets = [0, 0, 0]
+//       CHECK:   %[[I1:.*]] = vector.insert_strided_slice %[[EMPTY]], %[[I0]] {{.*}}offsets = [1, 0, 0]
+//       CHECK:   return %[[I1]] : vector<2x8x8xi1>
+func.func @vector_constant_mask_rank_mismatch() -> vector<2x8x8xi1> {
+  %0 = vector.constant_mask [1, 4, 8] : vector<2x8x8xi1>
+  return %0 : vector<2x8x8xi1>
+}
+
+// -----
+
 func.func @shape_cast_1D(%v: vector<16xf32>) -> vector<2x2x4xf32> {
   %0 = vector.shape_cast %v : vector<16xf32> to vector<2x2x4xf32>
   return %0 : vector<2x2x4xf32>
