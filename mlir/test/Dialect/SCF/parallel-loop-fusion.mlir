@@ -1761,3 +1761,69 @@ func.func @do_not_fuse_distinct_dynamic_bounds(%A: memref<16xf32>,
 // CHECK-LABEL: func @do_not_fuse_distinct_dynamic_bounds
 // CHECK:        scf.parallel
 // CHECK:        scf.parallel
+
+// -----
+
+// An op between the loops only blocks fusion if it has memory effects.
+// `isMemoryEffectFree` looks inside regions, so an empty `scf.if` does not.
+
+func.func @fuse_across_effect_free_region(%A: memref<16xf32>, %B: memref<16xf32>,
+                                          %c: i1) {
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c16 = arith.constant 16 : index
+  %cst = arith.constant 6.000000e+00 : f32
+  scf.parallel (%i) = (%c0) to (%c16) step (%c1) {
+    memref.store %cst, %A[%i] : memref<16xf32>
+    scf.reduce
+  }
+  scf.if %c {
+  } else {
+  }
+  scf.parallel (%i) = (%c0) to (%c16) step (%c1) {
+    %0 = memref.load %A[%i] : memref<16xf32>
+    memref.store %0, %B[%i] : memref<16xf32>
+    scf.reduce
+  }
+  return
+}
+// CHECK-LABEL: func @fuse_across_effect_free_region
+// CHECK:        scf.if
+// CHECK:        scf.parallel ([[I:%.*]]) =
+// CHECK-NEXT:     memref.store {{.*}}{{\[}}[[I]]{{\]}}
+// CHECK-NEXT:     [[V:%.*]] = memref.load {{.*}}{{\[}}[[I]]{{\]}}
+// CHECK-NEXT:     memref.store [[V]], {{.*}}{{\[}}[[I]]{{\]}}
+// CHECK-NEXT:     scf.reduce
+// CHECK-NEXT:   }
+// CHECK-NOT:    scf.parallel
+
+// -----
+
+// The same shape, but the region now writes to the memref the loops share, so
+// the loops must stay apart.
+
+func.func @do_not_fuse_across_region_with_side_effects(%A: memref<16xf32>,
+                                                       %B: memref<16xf32>,
+                                                       %c: i1) {
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c16 = arith.constant 16 : index
+  %cst = arith.constant 6.000000e+00 : f32
+  scf.parallel (%i) = (%c0) to (%c16) step (%c1) {
+    memref.store %cst, %A[%i] : memref<16xf32>
+    scf.reduce
+  }
+  scf.if %c {
+    memref.store %cst, %A[%c0] : memref<16xf32>
+  }
+  scf.parallel (%i) = (%c0) to (%c16) step (%c1) {
+    %0 = memref.load %A[%i] : memref<16xf32>
+    memref.store %0, %B[%i] : memref<16xf32>
+    scf.reduce
+  }
+  return
+}
+// CHECK-LABEL: func @do_not_fuse_across_region_with_side_effects
+// CHECK:        scf.parallel
+// CHECK:        scf.if
+// CHECK:        scf.parallel
