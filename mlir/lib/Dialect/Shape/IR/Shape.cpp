@@ -198,7 +198,14 @@ LogicalResult ShapeDialect::verifyOperationAttribute(Operation *op,
         if (!shapeFnLib)
           return op->emitError()
                  << it << " does not refer to FunctionLibraryOp";
-        for (auto mapping : shapeFnLib.getMapping()) {
+        // This runs while verifying the op that carries `shape.lib`, which
+        // happens before the nested library op has been verified, so `mapping`
+        // may still be missing. Skip it and let that op's own verifier report
+        // the absent attribute.
+        DictionaryAttr mappings = shapeFnLib.getMappingAttr();
+        if (!mappings)
+          continue;
+        for (auto mapping : mappings) {
           if (!key.insert(mapping.getName()).second) {
             return op->emitError("only one op to shape mapping allowed, found "
                                  "multiple for `")

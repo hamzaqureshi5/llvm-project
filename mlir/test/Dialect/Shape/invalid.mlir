@@ -310,3 +310,14 @@ func.func @invalid_meet(%arg0 : tensor<2xindex>, %arg1 : tensor<3xindex>) -> ten
   %result = shape.meet %arg0, %arg1 : tensor<2xindex>, tensor<3xindex> -> tensor<?xindex>
   return %result : tensor<?xindex>
 }
+
+// -----
+
+// A library op that is missing its mapping attribute is reported by that op's
+// own verifier. The shape.lib verifier on the enclosing module runs first and
+// must not read the absent attribute.
+
+module attributes {shape.lib = [@lib]} {
+  // expected-error@+1 {{'shape.function_library' op requires attribute 'mapping'}}
+  "shape.function_library"() <{sym_name = "lib"}> ({^bb0:}) : () -> ()
+}
